@@ -172,7 +172,7 @@ with col1:
             image = normalize_image(image)
             
             # Wyświetlenie przesłanego zdjęcia
-            st.image(image, caption="Przesłane zdjęcie", use_column_width=True)
+            st.image(image, caption="Przesłane zdjęcie", use_container_width=True)
             
             # Zapisanie zdjęcia do stanu sesji
             st.session_state.uploaded_image = image
@@ -208,13 +208,13 @@ with col2:
             # Wyświetlenie maski segmentacji
             st.markdown("<h3>Maska segmentacji</h3>", unsafe_allow_html=True)
             colored_mask = colorize_mask(st.session_state.prediction)
-            st.image(colored_mask, caption="Maska segmentacji", use_column_width=True)
+            st.image(colored_mask, caption="Maska segmentacji", use_container_width=True)
             
         with result_col2:
             # Wyświetlenie nałożenia maski na oryginał
             st.markdown("<h3>Nałożenie na oryginał</h3>", unsafe_allow_html=True)
             overlay = overlay_masks(st.session_state.uploaded_image, st.session_state.prediction)
-            st.image(overlay, caption="Nałożenie segmentacji na oryginał", use_column_width=True)
+            st.image(overlay, caption="Nałożenie segmentacji na oryginał", use_container_width=True)
         
         # Wyświetlenie metryk
         st.markdown("<h3>Metryki modelu</h3>", unsafe_allow_html=True)
