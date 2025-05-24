@@ -56,7 +56,7 @@ st.markdown("""
         padding-bottom: 0.5rem;
     }
     .results-container {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        background: transparent;
         padding: 2rem;
         border-radius: 1rem;
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
@@ -71,7 +71,7 @@ st.markdown("""
         border-left: 4px solid #3498db;
     }
     .model-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f1f3f4 100%);
+        background: transparent;
         padding: 1rem;
         border-radius: 0.5rem;
         border: 2px solid #e9ecef;
@@ -88,7 +88,7 @@ st.markdown("""
         margin: 0.5rem 0;
         padding: 0.5rem;
         border-radius: 0.3rem;
-        background: #f8f9fa;
+        background: transparent;
     }
     .color-box {
         width: 20px;
