@@ -163,7 +163,7 @@ if 'server_status' not in st.session_state:
     st.session_state.server_status = "unknown"
 
 # Tytuł aplikacji
-st.markdown("<h1 class='main-header'>🧠 Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'> Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
 
 # Funkcja sprawdzania statusu serwera
 def check_server_status(server_url):
@@ -301,27 +301,27 @@ def create_class_distribution_chart(metrics):
 
 # Sidebar - konfiguracja
 with st.sidebar:
-    st.markdown("### ⚙️ Konfiguracja")
+    st.markdown("###  Konfiguracja")
     
     # URL serwera
     server_url = st.text_input(
-        "🌐 URL serwera Flask:",
+        " URL serwera Flask:",
         value="http://localhost:5000",
         help="Adres serwera z uruchomionym modelem"
     )
     
     # Sprawdzenie statusu serwera
-    if st.button("🔄 Sprawdź status serwera"):
+    if st.button(" Sprawdź status serwera"):
         with st.spinner("Sprawdzam serwer..."):
             status, info = check_server_status(server_url)
             st.session_state.server_status = status
             
             if status == "online":
-                st.success("✅ Serwer jest dostępny!")
+                st.success(" Serwer jest dostępny!")
                 if info:
                     st.json(info)
             else:
-                st.error("❌ Serwer niedostępny")
+                st.error(" Serwer niedostępny")
     
     # Wyświetl aktualny status
     status_color = {
@@ -340,7 +340,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Legenda klas
-    st.markdown("### 🎨 Legenda klas")
+    st.markdown("###  Legenda klas")
     for class_id, class_info in CLASS_DEFINITIONS.items():
         st.markdown(f"""
         <div class="class-legend">
@@ -357,10 +357,10 @@ col1, col2 = st.columns([1, 2])
 
 # Panel lewy - upload i wybór modelu
 with col1:
-    st.markdown("<h2 class='sub-header'>📤 Upload obrazu MRI</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'> Upload obrazu MRI</h2>", unsafe_allow_html=True)
     
     # Wybór modelu
-    st.markdown("### 🤖 Wybór modelu AI")
+    st.markdown("###  Wybór modelu AI")
     
     for model_key, model_info in MODELS_CONFIG.items():
         is_selected = st.session_state.selected_model == model_key
@@ -410,11 +410,11 @@ with col1:
             normalized_image = normalize_image(image)
             
             # Wyświetlenie przesłanego zdjęcia
-            st.image(normalized_image, caption="📸 Przesłany obraz MRI", use_container_width=True)
+            st.image(normalized_image, caption=" Przesłany obraz MRI", use_container_width=True)
             
             # Informacje o obrazie
             st.markdown(f"""
-            **📊 Informacje o obrazie:**
+            ** Informacje o obrazie:**
             - Rozmiar: {image.size[0]} x {image.size[1]} px
             - Tryb: {image.mode}
             - Format: {image.format or 'N/A'}
@@ -477,7 +477,7 @@ with col2:
         with main_metrics_cols[0]:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #e74c3c;">🎯 Dice Score</h3>
+                <h3 style="color: #e74c3c;"> Dice Score</h3>
                 <h1 style="color: #2c3e50;">{metrics.get('mean_dice', 'N/A'):.4f}</h1>
                 <p>Średnia ze wszystkich klas</p>
             </div>
@@ -486,7 +486,7 @@ with col2:
         with main_metrics_cols[1]:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #3498db;">📐 IoU (Jaccard)</h3>
+                <h3 style="color: #3498db;"> IoU (Jaccard)</h3>
                 <h1 style="color: #2c3e50;">{metrics.get('mean_iou', 'N/A'):.4f}</h1>
                 <p>Intersection over Union</p>
             </div>
@@ -495,7 +495,7 @@ with col2:
         with main_metrics_cols[2]:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #27ae60;">✅ Pixel Accuracy</h3>
+                <h3 style="color: #27ae60;"> Pixel Accuracy</h3>
                 <h1 style="color: #2c3e50;">{metrics.get('mean_pixel_accuracy', 'N/A'):.4f}</h1>
                 <p>Dokładność pikselowa</p>
             </div>
@@ -503,7 +503,7 @@ with col2:
         
         # Wykres rozkładu klas
         if 'class_distribution' in metrics:
-            st.markdown("#### 📊 Rozkład wykrytych klas")
+            st.markdown("####  Rozkład wykrytych klas")
             
             # Tworzenie wykresu kołowego
             distribution_fig = create_class_distribution_chart(metrics)
@@ -512,7 +512,7 @@ with col2:
         
         # Szczegółowe metryki dla każdej klasy
         if 'class_metrics' in metrics:
-            st.markdown("#### 🔍 Szczegółowe metryki dla klas")
+            st.markdown("####  Szczegółowe metryki dla klas")
             
             # Stwórz DataFrame dla lepszego wyświetlania
             class_data = []
@@ -539,10 +539,10 @@ with col2:
         st.markdown("""
         <div class="results-container">
             <div style="text-align: center; padding: 2rem;">
-                <h3>🏥 Gotowy do analizy!</h3>
+                <h3> Gotowy do analizy!</h3>
                 <p>Prześlij obraz MRI i wybierz model, aby rozpocząć segmentację.</p>
                 <br>
-                <h4>📋 Kroki:</h4>
+                <h4> Kroki:</h4>
                 <ol style="text-align: left; display: inline-block;">
                     <li>Sprawdź status serwera w panelu bocznym</li>
                     <li>Wybierz odpowiedni model AI</li>
