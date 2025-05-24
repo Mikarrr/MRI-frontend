@@ -46,7 +46,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Tytuł aplikacji
-st.markdown("<h1 class='main-header'>Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>Brain MRI Segmentation</h1>", unsafe_allow_html=True)
 
 # Inicjalizacja sesji
 if 'prediction' not in st.session_state:
@@ -159,8 +159,7 @@ with col1:
     
     # Pole na URL do Google Colab
     colab_url = st.text_input(
-        "URL do Google Colab (np. https://xxx.ngrok.io/predict)",
-        value="https://example.ngrok.io/predict"
+        value="https://collab/predict"
     )
     
     if uploaded_file is not None:
