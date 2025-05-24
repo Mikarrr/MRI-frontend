@@ -159,7 +159,8 @@ with col1:
     
     # Pole na URL do Google Colab
     colab_url = st.text_input(
-        value="https://collab/predict"
+        "URL do Google Colab (np. https://xxx.ngrok.io/predict)",
+        value="https://example.ngrok.io/predict"
     )
     
     if uploaded_file is not None:
