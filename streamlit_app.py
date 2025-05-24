@@ -63,12 +63,12 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     .metric-card {
-        background: transparent;
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
         padding: 1.5rem;
         border-radius: 0.8rem;
-       
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
-        
+        border-left: 4px solid #3498db;
     }
     .model-card {
         background: transparent;
@@ -117,8 +117,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Definicje modeli
+# Definicje modeli - TUTAJ DODAJ SWOJE MODELE
 MODELS_CONFIG = {
+    "twoj_model_1": {
+        "name": "Twój Model 1",
+        "description": "Opis Twojego pierwszego modelu",
+        "checkpoint": "sciezka/do/twojego/modelu1.pth",  # Ścieżka do pliku modelu
+        "input_size": (256, 256),  # Rozmiar wejściowy obrazu (szerokość, wysokość)
+        "features": ["Cecha 1", "Cecha 2", "Cecha 3"],  # Lista cech modelu
+        "recommended_for": "Do czego najlepiej nadaje się Twój model"
+    },
+    "twoj_model_2": {
+        "name": "Twój Model 2", 
+        "description": "Opis Twojego drugiego modelu",
+        "checkpoint": "sciezka/do/twojego/modelu2.pth",
+        "input_size": (512, 512),
+        "features": ["Inna cecha 1", "Inna cecha 2"],
+        "recommended_for": "Inne zastosowanie"
+    },
+    # Dodaj więcej modeli według potrzeb:
     "unet_standard": {
         "name": "U-Net Standard",
         "description": "Podstawowy model U-Net z standardowymi parametrami",
@@ -126,22 +143,6 @@ MODELS_CONFIG = {
         "input_size": (256, 256),
         "features": ["Szybka predykcja", "Dobra ogólna jakość", "Stabilny"],
         "recommended_for": "Ogólne zastosowania diagnostyczne"
-    },
-    "unet_enhanced": {
-        "name": "U-Net Enhanced", 
-        "description": "Ulepszona wersja z większą liczbą filtrów i attention",
-        "checkpoint": "best_unet_enhanced.pth",
-        "input_size": (256, 256),
-        "features": ["Wyższa dokładność", "Lepsze wykrywanie detali", "Attention mechanism"],
-        "recommended_for": "Precyzyjna analiza zmian patologicznych"
-    },
-    "unet_deep": {
-        "name": "U-Net Deep",
-        "description": "Głęboka architektura dla najwyższej precyzji",
-        "checkpoint": "best_unet_deep.pth", 
-        "input_size": (512, 512),
-        "features": ["Najwyższa dokładność", "Wysoka rozdzielczość", "Zaawansowana architektura"],
-        "recommended_for": "Badania naukowe i przypadki skomplikowane"
     }
 }
 
@@ -398,12 +399,82 @@ def generate_demo_prediction(image, model_name):
 
 # Funkcja do tworzenia wykresu rozkładu klas
 def create_class_distribution_chart(metrics):
-    """Tworzy wykres rozkładu klas w segmentacji"""
+    """Tworzy wykres liniowy rozkładu klas w segmentacji"""
     if 'class_distribution' not in metrics:
         return None
     
     if not PLOTLY_AVAILABLE:
-        return create_matplotlib_pie_chart(metrics)
+        return create_matplotlib_line_chart(metrics)
+        
+    class_data = metrics['class_distribution']
+    
+    labels = []
+    values = []
+    colors = []
+    pixel_counts = []
+    
+    for class_id, class_info in CLASS_DEFINITIONS.items():
+        class_name = class_info['name']
+        if class_name in class_data:
+            labels.append(class_name)
+            values.append(class_data[class_name]['percentage'])
+            colors.append(class_info['hex'])
+            pixel_counts.append(class_data[class_name]['pixel_count'])
+    
+    fig = go.Figure()
+    
+    # Dodaj wykres liniowy
+    fig.add_trace(go.Scatter(
+        x=labels,
+        y=values,
+        mode='lines+markers',
+        name='Rozkład klas (%)',
+        line=dict(color='#3498db', width=3),
+        marker=dict(
+            size=12,
+            color=colors,
+            line=dict(color='white', width=2)
+        ),
+        hovertemplate='<b>%{x}</b><br>Procent: %{y:.2f}%<br>Piksele: %{customdata}<extra></extra>',
+        customdata=pixel_counts
+    ))
+    
+    # Dodaj wypełnienie pod linią
+    fig.add_trace(go.Scatter(
+        x=labels,
+        y=values,
+        fill='tonexty',
+        mode='none',
+        fillcolor='rgba(52, 152, 219, 0.2)',
+        showlegend=False,
+        hoverinfo='skip'
+    ))
+    
+    fig.update_layout(
+        title="Rozkład klas w segmentacji",
+        xaxis_title="Klasy segmentacji",
+        yaxis_title="Procent pokrycia (%)",
+        showlegend=True,
+        height=400,
+        plot_bgcolor='white',
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='lightgray',
+            tickangle=45
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='lightgray',
+            range=[0, max(values) * 1.1] if values else [0, 100]
+        )
+    )
+    
+    return fig
+
+def create_matplotlib_line_chart(metrics):
+    """Tworzy wykres liniowy używając matplotlib jako fallback"""
+    if 'class_distribution' not in metrics:
+        return None
         
     class_data = metrics['class_distribution']
     
@@ -416,57 +487,36 @@ def create_class_distribution_chart(metrics):
         if class_name in class_data:
             labels.append(class_name)
             values.append(class_data[class_name]['percentage'])
-            colors.append(class_info['hex'])
-    
-    fig = go.Figure(data=[go.Pie(
-        labels=labels,
-        values=values,
-        marker=dict(colors=colors),
-        textinfo='label+percent',
-        textposition='auto',
-        hovertemplate='<b>%{label}</b><br>Procent: %{percent}<br>Piksele: %{customdata}<extra></extra>',
-        customdata=[class_data[cls]['pixel_count'] for cls in labels if cls in class_data]
-    )])
-    
-    fig.update_layout(
-        title="Rozkład klas w segmentacji",
-        showlegend=True,
-        height=400
-    )
-    
-    return fig
-
-def create_matplotlib_pie_chart(metrics):
-    """Tworzy wykres kołowy używając matplotlib jako fallback"""
-    if 'class_distribution' not in metrics:
-        return None
-        
-    class_data = metrics['class_distribution']
-    
-    labels = []
-    values = []
-    colors = []
-    
-    for class_id, class_info in CLASS_DEFINITIONS.items():
-        class_name = class_info['name']
-        if class_name in class_data and class_data[class_name]['percentage'] > 0:
-            labels.append(f"{class_name}\n({class_data[class_name]['percentage']:.1f}%)")
-            values.append(class_data[class_name]['percentage'])
             colors.append(np.array(class_info['color'])/255.0)  # Normalize to 0-1 for matplotlib
     
     if not values:
         return None
     
-    fig, ax = plt.subplots(figsize=(8, 6))
-    wedges, texts, autotexts = ax.pie(values, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Wykres liniowy z markerami
+    line = ax.plot(labels, values, 'o-', linewidth=3, markersize=8, color='#3498db')
+    
+    # Wypełnienie pod linią
+    ax.fill_between(labels, values, alpha=0.3, color='#3498db')
+    
+    # Kolorowe markery dla każdej klasy
+    for i, (label, value, color) in enumerate(zip(labels, values, colors)):
+        ax.scatter(i, value, color=color, s=100, edgecolor='white', linewidth=2, zorder=5)
+        # Dodaj etykiety z wartościami
+        ax.annotate(f'{value:.1f}%', (i, value), textcoords="offset points", 
+                   xytext=(0,10), ha='center', fontweight='bold')
+    
     ax.set_title("Rozkład klas w segmentacji", fontsize=14, fontweight='bold')
+    ax.set_xlabel("Klasy segmentacji", fontsize=12)
+    ax.set_ylabel("Procent pokrycia (%)", fontsize=12)
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, max(values) * 1.2 if values else 100)
     
-    # Dostosuj tekst
-    for autotext in autotexts:
-        autotext.set_color('white')
-        autotext.set_fontweight('bold')
-    
+    # Obróć etykiety osi X
+    plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
+    
     return fig
 
 # === GŁÓWNY INTERFEJS ===
@@ -689,7 +739,7 @@ with col2:
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #e74c3c;">Dice Score</h3>
-                <h1>{metrics.get('mean_dice', 'N/A'):.4f}</h1>
+                <h1 style="color: #2c3e50;">{metrics.get('mean_dice', 'N/A'):.4f}</h1>
                 <p>Średnia ze wszystkich klas</p>
             </div>
             """, unsafe_allow_html=True)
@@ -698,7 +748,7 @@ with col2:
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #3498db;">IoU (Jaccard)</h3>
-                <h1>{metrics.get('mean_iou', 'N/A'):.4f}</h1>
+                <h1 style="color: #2c3e50;">{metrics.get('mean_iou', 'N/A'):.4f}</h1>
                 <p>Intersection over Union</p>
             </div>
             """, unsafe_allow_html=True)
@@ -707,7 +757,7 @@ with col2:
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #27ae60;">Pixel Accuracy</h3>
-                <h1 >{metrics.get('mean_pixel_accuracy', 'N/A'):.4f}</h1>
+                <h1 style="color: #2c3e50;">{metrics.get('mean_pixel_accuracy', 'N/A'):.4f}</h1>
                 <p>Dokładność pikselowa</p>
             </div>
             """, unsafe_allow_html=True)
