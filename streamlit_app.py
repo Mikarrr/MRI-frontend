@@ -689,7 +689,7 @@ with col2:
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #e74c3c;">Dice Score</h3>
-                <h1 style="color: #2c3e50;">{metrics.get('mean_dice', 'N/A'):.4f}</h1>
+                <h1>{metrics.get('mean_dice', 'N/A'):.4f}</h1>
                 <p>Średnia ze wszystkich klas</p>
             </div>
             """, unsafe_allow_html=True)
@@ -698,7 +698,7 @@ with col2:
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #3498db;">IoU (Jaccard)</h3>
-                <h1 style="color: #2c3e50;">{metrics.get('mean_iou', 'N/A'):.4f}</h1>
+                <h1>{metrics.get('mean_iou', 'N/A'):.4f}</h1>
                 <p>Intersection over Union</p>
             </div>
             """, unsafe_allow_html=True)
@@ -707,7 +707,7 @@ with col2:
             st.markdown(f"""
             <div class="metric-card">
                 <h3 style="color: #27ae60;">Pixel Accuracy</h3>
-                <h1 style="color: #2c3e50;">{metrics.get('mean_pixel_accuracy', 'N/A'):.4f}</h1>
+                <h1 >{metrics.get('mean_pixel_accuracy', 'N/A'):.4f}</h1>
                 <p>Dokładność pikselowa</p>
             </div>
             """, unsafe_allow_html=True)
