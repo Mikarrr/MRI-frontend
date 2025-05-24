@@ -63,12 +63,12 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     .metric-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        background: transparent;
         padding: 1.5rem;
         border-radius: 0.8rem;
-        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+       
         margin-bottom: 1rem;
-        border-left: 4px solid #3498db;
+        
     }
     .model-card {
         background: transparent;
