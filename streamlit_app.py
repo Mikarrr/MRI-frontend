@@ -10,9 +10,24 @@ import tempfile
 import os
 import json
 from urllib.parse import urljoin
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+# Sprawdź czy plotly jest dostępne
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    st.warning("📦 Plotly nie jest zainstalowany. Wykresy będą wyświetlane w trybie podstawowym. Zainstaluj: `pip install plotly`")
+
+# Sprawdź czy pandas jest dostępne  
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    st.warning("📦 Pandas nie jest zainstalowany. Tabele będą wyświetlane w trybie podstawowym. Zainstaluj: `pip install pandas`")
 
 # Konfiguracja strony
 st.set_page_config(
@@ -165,6 +180,23 @@ if 'server_status' not in st.session_state:
 # Tytuł aplikacji
 st.markdown("<h1 class='main-header'>🧠 Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
 
+# Informacja o brakujących bibliotekach
+missing_libs = []
+if not PLOTLY_AVAILABLE:
+    missing_libs.append("plotly")
+if not PANDAS_AVAILABLE:
+    missing_libs.append("pandas")
+
+if missing_libs:
+    st.info(f"""
+    💡 **Opcjonalne biblioteki**: Dla pełnej funkcjonalności zainstaluj brakujące biblioteki:
+    ```bash
+    pip install {' '.join(missing_libs)}
+    ```
+    Aplikacja będzie działać w trybie podstawowym bez nich.
+    """)
+
+
 # Funkcja sprawdzania statusu serwera
 def check_server_status(server_url):
     """Sprawdza czy serwer Flask jest dostępny"""
@@ -265,6 +297,9 @@ def create_class_distribution_chart(metrics):
     """Tworzy wykres rozkładu klas w segmentacji"""
     if 'class_distribution' not in metrics:
         return None
+    
+    if not PLOTLY_AVAILABLE:
+        return create_matplotlib_pie_chart(metrics)
         
     class_data = metrics['class_distribution']
     
@@ -295,6 +330,39 @@ def create_class_distribution_chart(metrics):
         height=400
     )
     
+    return fig
+
+def create_matplotlib_pie_chart(metrics):
+    """Tworzy wykres kołowy używając matplotlib jako fallback"""
+    if 'class_distribution' not in metrics:
+        return None
+        
+    class_data = metrics['class_distribution']
+    
+    labels = []
+    values = []
+    colors = []
+    
+    for class_id, class_info in CLASS_DEFINITIONS.items():
+        class_name = class_info['name']
+        if class_name in class_data and class_data[class_name]['percentage'] > 0:
+            labels.append(f"{class_name}\n({class_data[class_name]['percentage']:.1f}%)")
+            values.append(class_data[class_name]['percentage'])
+            colors.append(np.array(class_info['color'])/255.0)  # Normalize to 0-1 for matplotlib
+    
+    if not values:
+        return None
+    
+    fig, ax = plt.subplots(figsize=(8, 6))
+    wedges, texts, autotexts = ax.pie(values, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    ax.set_title("Rozkład klas w segmentacji", fontsize=14, fontweight='bold')
+    
+    # Dostosuj tekst
+    for autotext in autotexts:
+        autotext.set_color('white')
+        autotext.set_fontweight('bold')
+    
+    plt.tight_layout()
     return fig
 
 # === GŁÓWNY INTERFEJS ===
@@ -508,26 +576,39 @@ with col2:
             # Tworzenie wykresu kołowego
             distribution_fig = create_class_distribution_chart(metrics)
             if distribution_fig:
-                st.plotly_chart(distribution_fig, use_container_width=True)
+                if PLOTLY_AVAILABLE:
+                    st.plotly_chart(distribution_fig, use_container_width=True)
+                else:
+                    st.pyplot(distribution_fig)
         
         # Szczegółowe metryki dla każdej klasy
         if 'class_metrics' in metrics:
             st.markdown("#### 🔍 Szczegółowe metryki dla klas")
             
-            # Stwórz DataFrame dla lepszego wyświetlania
-            class_data = []
-            for class_name, class_metrics in metrics['class_metrics'].items():
-                class_data.append({
-                    'Klasa': class_name,
-                    'Dice': f"{class_metrics.get('dice', 0):.4f}",
-                    'IoU': f"{class_metrics.get('iou', 0):.4f}",
-                    'Pixel Accuracy': f"{class_metrics.get('pixel_accuracy', 0):.4f}"
-                })
-            
-            # Wyświetl jako tabelę
-            import pandas as pd
-            df = pd.DataFrame(class_data)
-            st.dataframe(df, use_container_width=True)
+            if PANDAS_AVAILABLE:
+                # Stwórz DataFrame dla lepszego wyświetlania
+                class_data = []
+                for class_name, class_metrics in metrics['class_metrics'].items():
+                    class_data.append({
+                        'Klasa': class_name,
+                        'Dice': f"{class_metrics.get('dice', 0):.4f}",
+                        'IoU': f"{class_metrics.get('iou', 0):.4f}",
+                        'Pixel Accuracy': f"{class_metrics.get('pixel_accuracy', 0):.4f}"
+                    })
+                
+                # Wyświetl jako tabelę
+                df = pd.DataFrame(class_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                # Fallback bez pandas - prostsze wyświetlanie
+                for class_name, class_metrics in metrics['class_metrics'].items():
+                    st.markdown(f"""
+                    **{class_name}:**
+                    - Dice: {class_metrics.get('dice', 0):.4f}
+                    - IoU: {class_metrics.get('iou', 0):.4f}
+                    - Pixel Accuracy: {class_metrics.get('pixel_accuracy', 0):.4f}
+                    """)
+                    st.markdown("---")
         
         # Informacje techniczne
         if hasattr(st.session_state, 'prediction_info') and st.session_state.prediction_info:
