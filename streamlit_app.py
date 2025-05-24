@@ -20,7 +20,7 @@ try:
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
-    st.warning("📦 Plotly nie jest zainstalowany. Wykresy będą wyświetlane w trybie podstawowym. Zainstaluj: `pip install plotly`")
+    st.warning("Plotly nie jest zainstalowany. Wykresy będą wyświetlane w trybie podstawowym. Zainstaluj: `pip install plotly`")
 
 # Sprawdź czy pandas jest dostępne  
 try:
@@ -28,12 +28,12 @@ try:
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-    st.warning("📦 Pandas nie jest zainstalowany. Tabele będą wyświetlane w trybie podstawowym. Zainstaluj: `pip install pandas`")
+    st.warning("Pandas nie jest zainstalowany. Tabele będą wyświetlane w trybie podstawowym. Zainstaluj: `pip install pandas`")
 
 # Konfiguracja strony
 st.set_page_config(
     layout="wide", 
-    page_title="🧠 Brain MRI Segmentation AI",
+    page_title="Brain MRI Segmentation AI",
     page_icon="🧠"
 )
 
@@ -120,7 +120,7 @@ st.markdown("""
 # Definicje modeli
 MODELS_CONFIG = {
     "unet_standard": {
-        "name": "🎯 U-Net Standard",
+        "name": "U-Net Standard",
         "description": "Podstawowy model U-Net z standardowymi parametrami",
         "checkpoint": "best_unet_model.pth",
         "input_size": (256, 256),
@@ -128,7 +128,7 @@ MODELS_CONFIG = {
         "recommended_for": "Ogólne zastosowania diagnostyczne"
     },
     "unet_enhanced": {
-        "name": "⚡ U-Net Enhanced", 
+        "name": "U-Net Enhanced", 
         "description": "Ulepszona wersja z większą liczbą filtrów i attention",
         "checkpoint": "best_unet_enhanced.pth",
         "input_size": (256, 256),
@@ -136,7 +136,7 @@ MODELS_CONFIG = {
         "recommended_for": "Precyzyjna analiza zmian patologicznych"
     },
     "unet_deep": {
-        "name": "🔬 U-Net Deep",
+        "name": "U-Net Deep",
         "description": "Głęboka architektura dla najwyższej precyzji",
         "checkpoint": "best_unet_deep.pth", 
         "input_size": (512, 512),
@@ -191,7 +191,7 @@ if 'demo_mode' not in st.session_state:
     st.session_state.demo_mode = False
 
 # Tytuł aplikacji
-st.markdown("<h1 class='main-header'>🧠 Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
 
 # Informacja o brakujących bibliotekach
 missing_libs = []
@@ -202,7 +202,7 @@ if not PANDAS_AVAILABLE:
 
 if missing_libs:
     st.info(f"""
-    💡 **Opcjonalne biblioteki**: Dla pełnej funkcjonalności zainstaluj brakujące biblioteki:
+    Opcjonalne biblioteki: Dla pełnej funkcjonalności zainstaluj brakujące biblioteki:
     ```bash
     pip install {' '.join(missing_libs)}
     ```
@@ -473,38 +473,38 @@ def create_matplotlib_pie_chart(metrics):
 
 # Sidebar - konfiguracja
 with st.sidebar:
-    st.markdown("### ⚙️ Konfiguracja")
+    st.markdown("### Konfiguracja")
     
     # Przełącznik trybu demo
     demo_mode = st.toggle(
-        "🎮 Tryb Demo", 
+        "Tryb Demo", 
         value=st.session_state.demo_mode,
         help="Włącz tryb demo bez potrzeby serwera Flask - generuje przykładowe wyniki"
     )
     st.session_state.demo_mode = demo_mode
     
     if demo_mode:
-        st.info("🎮 **Tryb Demo aktywny**\nGeneruję przykładowe wyniki bez serwera")
+        st.info("**Tryb Demo aktywny**\nGeneruję przykładowe wyniki bez serwera")
     else:
         # URL serwera (tylko jeśli nie demo)
         server_url = st.text_input(
-            "🌐 URL serwera Flask:",
+            "URL serwera Flask:",
             value="http://localhost:5000",
             help="Adres serwera z uruchomionym modelem"
         )
         
         # Sprawdzenie statusu serwera
-        if st.button("🔄 Sprawdź status serwera"):
+        if st.button("Sprawdź status serwera"):
             with st.spinner("Sprawdzam serwer..."):
                 status, info = check_server_status(server_url)
                 st.session_state.server_status = status
                 
                 if status == "online":
-                    st.success("✅ Serwer jest dostępny!")
+                    st.success("Serwer jest dostępny!")
                     if info:
                         st.json(info)
                 else:
-                    st.error("❌ Serwer niedostępny")
+                    st.error("Serwer niedostępny")
         
         # Wyświetl aktualny status
         status_color = {
@@ -523,7 +523,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Legenda klas
-    st.markdown("### 🎨 Legenda klas")
+    st.markdown("### Legenda klas")
     for class_id, class_info in CLASS_DEFINITIONS.items():
         st.markdown(f"""
         <div class="class-legend">
@@ -540,10 +540,10 @@ col1, col2 = st.columns([1, 2])
 
 # Panel lewy - upload i wybór modelu
 with col1:
-    st.markdown("<h2 class='sub-header'>📤 Upload obrazu MRI</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>Upload obrazu MRI</h2>", unsafe_allow_html=True)
     
     # Wybór modelu (uproszczona wersja)
-    st.markdown("### 🤖 Wybór modelu AI")
+    st.markdown("### Wybór modelu AI")
     
     # Lista modeli do wyboru
     model_options = list(MODELS_CONFIG.keys())
@@ -583,7 +583,7 @@ with col1:
     
     # Upload pliku
     uploaded_file = st.file_uploader(
-        "📁 Wybierz zdjęcie MRI do analizy", 
+        "Wybierz zdjęcie MRI do analizy", 
         type=["png", "jpg", "jpeg", "tiff", "tif"],
         help="Obsługiwane formaty: PNG, JPG, JPEG, TIFF"
     )
@@ -597,11 +597,11 @@ with col1:
             normalized_image = normalize_image(image)
             
             # Wyświetlenie przesłanego zdjęcia
-            st.image(normalized_image, caption="📸 Przesłany obraz MRI", use_container_width=True)
+            st.image(normalized_image, caption="Przesłany obraz MRI", use_container_width=True)
             
             # Informacje o obrazie
             st.markdown(f"""
-            **📊 Informacje o obrazie:**
+            **Informacje o obrazie:**
             - Rozmiar: {image.size[0]} x {image.size[1]} px
             - Tryb: {image.mode}
             - Format: {image.format or 'N/A'}
@@ -611,12 +611,12 @@ with col1:
             st.session_state.uploaded_image = normalized_image
             
             # Przycisk do analizy zdjęcia
-            analyze_button_text = "🎮 Wygeneruj Demo" if st.session_state.demo_mode else "🔍 Analizuj obraz MRI"
+            analyze_button_text = "Wygeneruj Demo" if st.session_state.demo_mode else "Analizuj obraz MRI"
             
             if st.button(analyze_button_text, type="primary", use_container_width=True):
                 if st.session_state.demo_mode:
                     # Tryb demo - generuj przykładowe wyniki
-                    with st.spinner(f"🎮 Generuję demo używając modelu {MODELS_CONFIG[st.session_state.selected_model]['name']}..."):
+                    with st.spinner(f"Generuję demo używając modelu {MODELS_CONFIG[st.session_state.selected_model]['name']}..."):
                         mask, metrics, info = generate_demo_prediction(
                             normalized_image, 
                             st.session_state.selected_model
@@ -626,17 +626,17 @@ with col1:
                             st.session_state.prediction = mask
                             st.session_state.metrics = metrics
                             st.session_state.prediction_info = info
-                            st.success("✅ Demo wygenerowane pomyślnie!")
+                            st.success("Demo wygenerowane pomyślnie!")
                             st.balloons()
                         else:
-                            st.error("❌ Nie udało się wygenerować demo")
+                            st.error("Nie udało się wygenerować demo")
                 else:
                     # Tryb normalny - połączenie z serwerem
                     if st.session_state.server_status != "online":
-                        st.warning("⚠️ Sprawdź czy serwer jest dostępny przed analizą")
-                        st.info("💡 Możesz włączyć **Tryb Demo** w panelu bocznym aby przetestować interfejs")
+                        st.warning("Sprawdź czy serwer jest dostępny przed analizą")
+                        st.info("Możesz włączyć **Tryb Demo** w panelu bocznym aby przetestować interfejs")
                     else:
-                        with st.spinner(f"🧠 Analizuję obraz używając modelu {MODELS_CONFIG[st.session_state.selected_model]['name']}..."):
+                        with st.spinner(f"Analizuję obraz używając modelu {MODELS_CONFIG[st.session_state.selected_model]['name']}..."):
                             # Wywołanie predykcji z serwerem Flask
                             mask, metrics, info = predict_with_flask_server(
                                 normalized_image, 
@@ -648,18 +648,18 @@ with col1:
                                 st.session_state.prediction = mask
                                 st.session_state.metrics = metrics
                                 st.session_state.prediction_info = info
-                                st.success("✅ Analiza zakończona pomyślnie!")
+                                st.success("Analiza zakończona pomyślnie!")
                                 st.balloons()
                             else:
-                                st.error("❌ Nie udało się wykonać analizy")
-                                st.info("💡 Spróbuj włączyć **Tryb Demo** w panelu bocznym")
+                                st.error("Nie udało się wykonać analizy")
+                                st.info("Spróbuj włączyć **Tryb Demo** w panelu bocznym")
         
         except Exception as e:
-            st.error(f"❌ Błąd podczas przetwarzania obrazu: {str(e)}")
+            st.error(f"Błąd podczas przetwarzania obrazu: {str(e)}")
 
 # Panel prawy - wyniki analizy
 with col2:
-    st.markdown("<h2 class='sub-header'>📊 Wyniki segmentacji</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sub-header'>Wyniki segmentacji</h2>", unsafe_allow_html=True)
     
     if st.session_state.prediction is not None and st.session_state.uploaded_image is not None:
         
@@ -668,17 +668,17 @@ with col2:
         result_col1, result_col2 = st.columns(2)
         
         with result_col1:
-            st.markdown("#### 🎨 Maska segmentacji")
+            st.markdown("#### Maska segmentacji")
             colored_mask = colorize_mask(st.session_state.prediction)
             st.image(colored_mask, caption="Kolorowa maska segmentacji", use_container_width=True)
             
         with result_col2:
-            st.markdown("#### 🖼️ Nakładka na oryginał")
+            st.markdown("#### Nakładka na oryginał")
             overlay = overlay_masks(st.session_state.uploaded_image, st.session_state.prediction)
             st.image(overlay, caption="Segmentacja nałożona na oryginał", use_container_width=True)
         
         # Szczegółowe metryki
-        st.markdown("#### 📈 Metryki jakości modelu")
+        st.markdown("#### Metryki jakości modelu")
         
         metrics = st.session_state.metrics
         
@@ -688,7 +688,7 @@ with col2:
         with main_metrics_cols[0]:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #e74c3c;">🎯 Dice Score</h3>
+                <h3 style="color: #e74c3c;">Dice Score</h3>
                 <h1 style="color: #2c3e50;">{metrics.get('mean_dice', 'N/A'):.4f}</h1>
                 <p>Średnia ze wszystkich klas</p>
             </div>
@@ -697,7 +697,7 @@ with col2:
         with main_metrics_cols[1]:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #3498db;">📐 IoU (Jaccard)</h3>
+                <h3 style="color: #3498db;">IoU (Jaccard)</h3>
                 <h1 style="color: #2c3e50;">{metrics.get('mean_iou', 'N/A'):.4f}</h1>
                 <p>Intersection over Union</p>
             </div>
@@ -706,7 +706,7 @@ with col2:
         with main_metrics_cols[2]:
             st.markdown(f"""
             <div class="metric-card">
-                <h3 style="color: #27ae60;">✅ Pixel Accuracy</h3>
+                <h3 style="color: #27ae60;">Pixel Accuracy</h3>
                 <h1 style="color: #2c3e50;">{metrics.get('mean_pixel_accuracy', 'N/A'):.4f}</h1>
                 <p>Dokładność pikselowa</p>
             </div>
@@ -714,7 +714,7 @@ with col2:
         
         # Wykres rozkładu klas
         if 'class_distribution' in metrics:
-            st.markdown("#### 📊 Rozkład wykrytych klas")
+            st.markdown("#### Rozkład wykrytych klas")
             
             # Tworzenie wykresu kołowego
             distribution_fig = create_class_distribution_chart(metrics)
@@ -726,7 +726,7 @@ with col2:
         
         # Szczegółowe metryki dla każdej klasy
         if 'class_metrics' in metrics:
-            st.markdown("#### 🔍 Szczegółowe metryki dla klas")
+            st.markdown("#### Szczegółowe metryki dla klas")
             
             if PANDAS_AVAILABLE:
                 # Stwórz DataFrame dla lepszego wyświetlania
@@ -755,7 +755,7 @@ with col2:
         
         # Informacje techniczne
         if hasattr(st.session_state, 'prediction_info') and st.session_state.prediction_info:
-            with st.expander("🔧 Informacje techniczne"):
+            with st.expander("Informacje techniczne"):
                 info = st.session_state.prediction_info
                 st.json(info)
                     
@@ -763,7 +763,7 @@ with col2:
         st.markdown("""
         <div class="results-container">
             <div style="text-align: center; padding: 2rem;">
-                <h3>🏥 Gotowy do analizy!</h3>
+                <h3>Gotowy do analizy!</h3>
                 <p>Prześlij obraz MRI i wybierz model, aby rozpocząć segmentację.</p>
                 <br>
             </div>
@@ -771,30 +771,30 @@ with col2:
         """, unsafe_allow_html=True)
 
 # Dodatkowe informacje
-with st.expander("📚 Informacje o modelach i klasach"):
+with st.expander("Informacje o modelach i klasach"):
     st.markdown("""
-    ### 🎮 Tryb Demo vs Tryb Rzeczywisty:
+    ### Tryb Demo vs Tryb Rzeczywisty:
     
-    **🎮 Tryb Demo:**
+    **Tryb Demo:**
     - Nie wymaga serwera Flask ani wytrenowanych modeli
     - Generuje przykładowe wyniki segmentacji
     - Idealny do testowania interfejsu
-    - ⚠️ **UWAGA:** Wyniki nie są prawdziwą analizą medyczną!
+    - **UWAGA:** Wyniki nie są prawdziwą analizą medyczną!
     
-    **🔬 Tryb Rzeczywisty:**
+    **Tryb Rzeczywisty:**
     - Wymaga uruchomionego serwera Flask z wytrenowanymi modelami
     - Wykonuje prawdziwą segmentację obrazów MRI
     - Różne poziomy dokładności w zależności od modelu
     
-    ### 🤖 Dostępne modele:
+    ### Dostępne modele:
     
-    **🎯 U-Net Standard** - Podstawowy model zapewniający szybkie i stabilne wyniki dla większości przypadków diagnostycznych.
+    **U-Net Standard** - Podstawowy model zapewniający szybkie i stabilne wyniki dla większości przypadków diagnostycznych.
     
-    **⚡ U-Net Enhanced** - Ulepszona wersja z mechanizmami uwagi, zapewniająca wyższą dokładność wykrywania szczegółów patologicznych.
+    **U-Net Enhanced** - Ulepszona wersja z mechanizmami uwagi, zapewniająca wyższą dokładność wykrywania szczegółów patologicznych.
     
-    **🔬 U-Net Deep** - Najzaawansowana architektura dla przypadków wymagających najwyższej precyzji i analizy wysokiej rozdzielczości.
+    **U-Net Deep** - Najzaawansowana architektura dla przypadków wymagających najwyższej precyzji i analizy wysokiej rozdzielczości.
     
-    ### 🧠 Klasy segmentacji:
+    ### Klasy segmentacji:
     
     Model został wytrenowany do identyfikacji następujących struktur w obrazach MRI mózgu:
     
@@ -803,7 +803,7 @@ with st.expander("📚 Informacje o modelach i klasach"):
     - **Obrzęk okołoguzowy (zielony)**: ED - obrzęk wokół guza
     - **Aktywny guz (niebieski)**: ET - aktywnie wzmacniające się części guza
     
-    ### 📊 Metryki:
+    ### Metryki:
     
     - **Dice Score**: Miara podobieństwa między predykcją a rzeczywistością (0-1, wyższe = lepsze)
     - **IoU (Intersection over Union)**: Stosunek części wspólnej do sumy obszarów (0-1, wyższe = lepsze)  
@@ -814,9 +814,9 @@ with st.expander("📚 Informacje o modelach i klasach"):
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #7f8c8d; margin-top: 2rem;">
-    🧠 <strong>Brain MRI Segmentation AI</strong> | 
+    <strong>Brain MRI Segmentation AI</strong> | 
     Powered by U-Net Deep Learning | 
-    🔬 Narzędzie wspomagające diagnostykę medyczną<br>
-    <small>⚠️ Dla celów demonstracyjnych - nie zastępuje konsultacji medycznej</small>
+    Narzędzie wspomagające diagnostykę medyczną<br>
+    <small>Dla celów demonstracyjnych - nie zastępuje konsultacji medycznej</small>
 </div>
 """, unsafe_allow_html=True)
