@@ -663,17 +663,6 @@ with col2:
     
     if st.session_state.prediction is not None and st.session_state.uploaded_image is not None:
         
-        # Ostrzeżenie dla trybu demo
-        if st.session_state.demo_mode or (hasattr(st.session_state, 'prediction_info') and 
-                                         st.session_state.prediction_info and 
-                                         st.session_state.prediction_info.get('demo_mode')):
-            st.markdown("""
-            <div class="demo-warning">
-                <h4>🎮 TRYB DEMO - To są przykładowe wyniki!</h4>
-                <p>Wyniki nie są prawdziwą analizą medyczną. Służą tylko do demonstracji interfejsu.
-                Aby uzyskać rzeczywiste wyniki, uruchom serwer Flask z wytrenowanymi modelami.</p>
-            </div>
-            """, unsafe_allow_html=True)
         
         # Wyniki wizualne
         result_col1, result_col2 = st.columns(2)
@@ -777,25 +766,6 @@ with col2:
                 <h3>🏥 Gotowy do analizy!</h3>
                 <p>Prześlij obraz MRI i wybierz model, aby rozpocząć segmentację.</p>
                 <br>
-                <h4>📋 Opcje:</h4>
-                <div style="text-align: left; display: inline-block;">
-                    <h5>🎮 Tryb Demo (bez serwera):</h5>
-                    <ol>
-                        <li>Włącz "Tryb Demo" w panelu bocznym</li>
-                        <li>Wybierz model AI</li>
-                        <li>Prześlij dowolny obraz</li>
-                        <li>Kliknij "Wygeneruj Demo"</li>
-                    </ol>
-                    
-                    <h5>🔬 Tryb rzeczywisty (z serwerem):</h5>
-                    <ol>
-                        <li>Uruchom serwer Flask z modelami</li>
-                        <li>Sprawdź status serwera w panelu bocznym</li>
-                        <li>Wybierz odpowiedni model AI</li>
-                        <li>Prześlij obraz MRI</li>
-                        <li>Kliknij "Analizuj obraz MRI"</li>
-                    </ol>
-                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
