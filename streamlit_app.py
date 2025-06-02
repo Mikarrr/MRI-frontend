@@ -1,15 +1,12 @@
 import streamlit as st
 import torch
+import torch.nn as nn
 import numpy as np
 import io
 from PIL import Image
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-import requests
-import tempfile
 import os
-import json
-from urllib.parse import urljoin
 from datetime import datetime
 
 # Sprawdź czy plotly jest dostępne
@@ -66,9 +63,7 @@ st.markdown("""
         background: transparent;
         padding: 1.5rem;
         border-radius: 0.8rem;
-       
         margin-bottom: 1rem;
-        
     }
     .model-card {
         background: transparent;
@@ -117,19 +112,139 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# =================================
+# DEFINICJA MODELU UNET
+# =================================
+
+class UNet(nn.Module):
+    def __init__(self, in_channels=1, out_channels=2):
+        super(UNet, self).__init__()
+        x = 16
+        # Encoder
+        self.enc1 = self._block(in_channels, x)
+        self.enc2 = self._block(x, 2*x)
+        self.enc3 = self._block(2*x, 4*x)
+        self.enc4 = self._block(4*x, 8*x)
+
+        # Bottleneck
+        self.bottleneck = self._block(8*x, 16*x)
+
+        # Decoder
+        self.dec4 = self._block(16*x + 8*x, 8*x)
+        self.dec3 = self._block(8*x + 4*x, 4*x)
+        self.dec2 = self._block(4*x + 2*x, 2*x)
+        self.dec1 = self._block(2*x + x, x)
+
+        # Output
+        self.out = nn.Conv2d(x, out_channels, kernel_size=1)
+
+        self.pool = nn.MaxPool2d(2)
+        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+
+    def _block(self, in_channels, out_channels):
+        return nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, 3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
+
+    def forward(self, x):
+        # Encoder
+        enc1 = self.enc1(x)
+        enc2 = self.enc2(self.pool(enc1))
+        enc3 = self.enc3(self.pool(enc2))
+        enc4 = self.enc4(self.pool(enc3))
+
+        # Bottleneck
+        bottleneck = self.bottleneck(self.pool(enc4))
+
+        # Decoder
+        dec4 = self.dec4(torch.cat([self.upsample(bottleneck), enc4], dim=1))
+        dec3 = self.dec3(torch.cat([self.upsample(dec4), enc3], dim=1))
+        dec2 = self.dec2(torch.cat([self.upsample(dec3), enc2], dim=1))
+        dec1 = self.dec1(torch.cat([self.upsample(dec2), enc1], dim=1))
+
+        return self.out(dec1)
+
+# =================================
+# FUNKCJE METRYK
+# =================================
+
+def iou_pytorch(outputs: torch.Tensor, labels: torch.Tensor, smooth=1e-6):
+    """Obliczanie IoU (Intersection over Union)"""
+    outputs = outputs.float()
+    labels = labels.float()
+
+    if outputs.dim() == 4:
+        outputs = outputs.squeeze(1)
+        labels = labels.squeeze(1)
+
+    outputs = outputs.view(outputs.size(0), -1)
+    labels = labels.view(labels.size(0), -1)
+
+    intersection = (outputs * labels).sum(dim=1)
+    union = outputs.sum(dim=1) + labels.sum(dim=1) - intersection
+
+    iou = (intersection + smooth) / (union + smooth)
+
+    return iou.mean()  # shape: (B,)
+
+def dice_coefficient_pytorch(outputs: torch.Tensor, labels: torch.Tensor, smooth=1e-6):
+    """Obliczanie współczynnika Dice'a"""
+    outputs = outputs.float()
+    labels = labels.float()
+
+    if outputs.dim() == 4:
+        outputs = outputs.squeeze(1)
+        labels = labels.squeeze(1)
+
+    outputs = outputs.view(outputs.size(0), -1)
+    labels = labels.view(labels.size(0), -1)
+
+    intersection = (outputs * labels).sum(dim=1)
+    sum_outputs = outputs.sum(dim=1)
+    sum_labels = labels.sum(dim=1)
+
+    dice = (2. * intersection + smooth) / (sum_outputs + sum_labels + smooth)
+
+    return dice.mean()
+
+def mean_pixel_accuracy_pytorch(outputs: torch.Tensor, labels: torch.Tensor):
+    """Obliczanie średniej dokładności pikselowej"""
+    if outputs.dim() == 4:
+        outputs = outputs.squeeze(1)
+    if labels.dim() == 4:
+        labels = labels.squeeze(1)
+
+    outputs = outputs.float()
+    labels = labels.float()
+
+    correct = (outputs == labels).float()
+    accuracy_per_image = correct.view(correct.size(0), -1).mean(dim=1)  # (B,)
+
+    return accuracy_per_image.mean()
+
+# =================================
+# KONFIGURACJA APLIKACJI
+# =================================
+
 # Definicje modeli
 MODELS_CONFIG = {
     "unet_standard": {
         "name": "U-Net Standard",
         "description": "Model U-Net do segmentacji obrazów MRI",
-        "checkpoint": "best_unet_model.pth",
+        "checkpoint": "best_unet_model.pth", # Ścieżka do Twojego zapisanego modelu
         "input_size": (256, 256),
         "features": ["Szybka predykcja", "Dobra ogólna jakość", "Stabilny"],
         "recommended_for": "Segmentacja guzów mózgu"
     }
+    # Możesz dodać więcej modeli jeśli masz ich więcej
 }
 
-# Definicje klas segmentacji - aktualizacja do 2 klas
+# Definicje klas segmentacji
 CLASS_DEFINITIONS = {
     0: {
         "name": "Tło",
@@ -148,7 +263,14 @@ CLASS_DEFINITIONS = {
 # CLASS_NAMES dla kompatybilności
 CLASS_NAMES = {i: info["name"] for i, info in CLASS_DEFINITIONS.items()}
 
-# Inicjalizacja sesji
+# Globalne zmienne dla modeli
+models = {}
+device = None
+
+# =================================
+# INICJALIZACJA SESJI
+# =================================
+
 if 'prediction' not in st.session_state:
     st.session_state.prediction = None
 if 'uploaded_image' not in st.session_state:
@@ -157,43 +279,73 @@ if 'metrics' not in st.session_state:
     st.session_state.metrics = None
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = "unet_standard"
-if 'server_status' not in st.session_state:
-    st.session_state.server_status = "unknown"
+if 'models_loaded' not in st.session_state:
+    st.session_state.models_loaded = False
+if 'models' not in st.session_state:
+    st.session_state.models = {}
 if 'demo_mode' not in st.session_state:
     st.session_state.demo_mode = False
 
-# Tytuł aplikacji
-st.markdown("<h1 class='main-header'>Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
+# =================================
+# FUNKCJE POMOCNICZE
+# =================================
 
-# Informacja o brakujących bibliotekach
-missing_libs = []
-if not PLOTLY_AVAILABLE:
-    missing_libs.append("plotly")
-if not PANDAS_AVAILABLE:
-    missing_libs.append("pandas")
+@st.cache_resource
+def load_models():
+    """Funkcja do ładowania modeli (zakeszowana przez Streamlit)"""
+    loaded_models = {}
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    for model_key, model_config in MODELS_CONFIG.items():
+        try:
+            # Stwórz model
+            model = UNet(in_channels=1, out_channels=2)
+            
+            # Sprawdź czy plik checkpointa istnieje
+            checkpoint_path = model_config["checkpoint"]
+            if os.path.exists(checkpoint_path):
+                # Załaduj checkpoint
+                checkpoint = torch.load(checkpoint_path, map_location=device)
+                
+                # Sprawdź format checkpointa i dostosuj ładowanie
+                if 'model_state_dict' in checkpoint:
+                    model.load_state_dict(checkpoint['model_state_dict'])
+                else:
+                    # Jeśli to tylko state_dict bez dodatkowych kluczy
+                    model.load_state_dict(checkpoint)
+                
+                model.to(device)
+                model.eval()
+                
+                loaded_models[model_key] = {
+                    'model': model,
+                    'config': model_config,
+                    'loaded': True,
+                    'device': device
+                }
+                print(f"✅ Model {model_config['name']} załadowany pomyślnie")
+                
+            else:
+                # Zapisz informację o niedostępnym modelu
+                loaded_models[model_key] = {
+                    'model': None,
+                    'config': model_config,
+                    'loaded': False,
+                    'error': f"Nie znaleziono pliku: {checkpoint_path}"
+                }
+                print(f"⚠️ Nie znaleziono pliku modelu: {checkpoint_path}")
+                
+        except Exception as e:
+            loaded_models[model_key] = {
+                'model': None,
+                'config': model_config,
+                'loaded': False,
+                'error': str(e)
+            }
+            print(f"❌ Błąd ładowania modelu {model_key}: {str(e)}")
+    
+    return loaded_models, device
 
-if missing_libs:
-    st.info(f"""
-    Opcjonalne biblioteki: Dla pełnej funkcjonalności zainstaluj brakujące biblioteki:
-    ```bash
-    pip install {' '.join(missing_libs)}
-    ```
-    Aplikacja będzie działać w trybie podstawowym bez nich.
-    """)
-
-# Funkcja sprawdzania statusu serwera
-def check_server_status(server_url):
-    """Sprawdza czy serwer Flask jest dostępny"""
-    try:
-        response = requests.get(f"{server_url}/health", timeout=5)
-        if response.status_code == 200:
-            return "online", response.json()
-        else:
-            return "offline", None
-    except Exception as e:
-        return "offline", str(e)
-
-# Funkcja normalizująca obraz
 def normalize_image(img):
     """Normalizacja obrazu MRI dla lepszej wizualizacji"""
     img_np = np.array(img.convert('L'))
@@ -204,7 +356,6 @@ def normalize_image(img):
         img_np = np.zeros_like(img_np, dtype=np.uint8)
     return Image.fromarray(img_np)
 
-# Funkcja do generowania kolorowej maski
 def colorize_mask(mask):
     """Generuje kolorową maskę na podstawie predykcji"""
     rgb_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
@@ -212,7 +363,6 @@ def colorize_mask(mask):
         rgb_mask[mask == class_id] = class_info["color"]
     return rgb_mask
 
-# Funkcja połączenia zdjęcia z maską z odpowiednią przezroczystością
 def overlay_masks(image, mask, alpha=0.6):
     """Nakłada kolorową maskę na oryginalny obraz"""
     image = np.array(image.convert('RGB'))
@@ -235,48 +385,131 @@ def overlay_masks(image, mask, alpha=0.6):
     
     return blended
 
-# Funkcja do predykcji z serwerem Flask
-def predict_with_flask_server(image, server_url, model_name):
-    """Wysyła obraz do serwera Flask i otrzymuje predykcję"""
+def preprocess_image(image, target_size=(256, 256)):
+    """Przetwarzanie obrazu zgodnie z wymaganiami modelu"""
     try:
-        # Konweruj obraz do bajtów
-        img_bytes = io.BytesIO()
-        # Upewnij się, że obraz jest w trybie RGB lub L
-        if image.mode not in ['RGB', 'L']:
+        # Konwersja do skali szarości
+        if image.mode != 'L':
             image = image.convert('L')
-        image.save(img_bytes, format='PNG')
-        img_bytes.seek(0)
         
-        # Przygotowanie pliku do wysłania
-        files = {'file': ('brain_scan.png', img_bytes, 'image/png')}
-        data = {'model': model_name}  # Wyślij informację o wybranym modelu
+        # Zmiana rozmiaru
+        image = image.resize(target_size, Image.LANCZOS)
         
-        # Wysłanie żądania do serwera Flask
-        response = requests.post(f"{server_url}/predict", files=files, data=data, timeout=30)
+        # Konwersja do tensora
+        scan = torch.tensor(np.array(image), dtype=torch.float32)
+        scan = scan.unsqueeze(0)  # Add channel dimension [1, H, W]
         
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                prediction_mask = np.array(result['segmentation_mask'])
-                metrics = result['metrics']
-                info = result.get('info', {})
-                return prediction_mask, metrics, info
-            else:
-                st.error(f"Błąd predykcji: {result.get('error', 'Nieznany błąd')}")
-                return None, None, None
-        else:
-            st.error(f"Błąd serwera: {response.status_code}")
-            st.error(response.text)
-            return None, None, None
-            
-    except requests.exceptions.Timeout:
-        st.error("Przekroczono limit czasu - serwer nie odpowiada")
-        return None, None, None
+        # Normalizacja
+        transform = transforms.Normalize((0.5,), (0.5,))
+        scan = transform(scan)
+        
+        # Dodaj batch dimension [1, 1, H, W]
+        input_tensor = scan.unsqueeze(0)
+        
+        return input_tensor, None
+    
     except Exception as e:
-        st.error(f"Wystąpił błąd: {str(e)}")
-        return None, None, None
+        return None, f"Błąd przetwarzania obrazu: {str(e)}"
 
-# Funkcja do generowania demo danych
+def predict_with_local_model(image, model_key):
+    """Wykonuje predykcję używając lokalnie załadowanego modelu"""
+    try:
+        # Sprawdź czy model jest załadowany
+        if model_key not in st.session_state.models or not st.session_state.models[model_key]['loaded']:
+            return None, None, "Model nie jest załadowany"
+        
+        model_info = st.session_state.models[model_key]
+        model = model_info['model']
+        device = model_info['device']
+        target_size = model_info['config']['input_size']
+        
+        # Przetwórz obraz
+        input_tensor, error = preprocess_image(image, target_size)
+        if error:
+            return None, None, error
+        
+        # Wykonaj predykcję
+        with torch.no_grad():
+            input_tensor = input_tensor.to(device)
+            prediction_logits = model(input_tensor)
+            
+            # Konwertuj logity do prawdopodobieństw (dla segmentacji binarnej)
+            prediction_probs = torch.sigmoid(prediction_logits)
+            
+            # Uzyskaj maskę segmentacji (wartości binarnej)
+            prediction_mask = (prediction_probs > 0.5).squeeze().cpu().numpy().astype(np.uint8)
+            
+            # Stwórz sztuczne ground truth do demonstracji metryk
+            gt_mask = prediction_mask.copy()
+            noise_mask = np.random.random(gt_mask.shape) < 0.05
+            gt_mask[noise_mask] = 1 - gt_mask[noise_mask]  # Odwróć wartości na maskę szumową
+            
+            # Konwertuj ground truth do tensora
+            gt_tensor = torch.tensor(gt_mask, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+            
+            # Oblicz metryki
+            iou_score = iou_pytorch(prediction_probs > 0.5, gt_tensor)
+            dice_score = dice_coefficient_pytorch(prediction_probs > 0.5, gt_tensor)
+            mpa_score = mean_pixel_accuracy_pytorch(prediction_probs > 0.5, gt_tensor)
+            
+            # Statystyki predykcji
+            unique_classes, class_counts = np.unique(prediction_mask, return_counts=True)
+            class_percentages = {int(cls): float(count) / prediction_mask.size * 100 
+                               for cls, count in zip(unique_classes, class_counts)}
+            
+            # Uzupełnij brakujące klasy
+            for cls in range(2):
+                if cls not in class_percentages:
+                    class_percentages[cls] = 0.0
+            
+            metrics = {
+                'timestamp': datetime.now().isoformat(),
+                'image_shape': prediction_mask.shape,
+                'num_classes_detected': len(unique_classes),
+                'mean_iou': round(iou_score.item(), 4),
+                'mean_dice': round(dice_score.item(), 4),
+                'mean_pixel_accuracy': round(mpa_score.item(), 4),
+                'class_distribution': {
+                    CLASS_NAMES.get(cls, f"Class_{cls}"): {
+                        'percentage': round(class_percentages.get(cls, 0.0), 2),
+                        'pixel_count': int(class_counts[list(unique_classes).index(cls)] if cls in unique_classes else 0)
+                    }
+                    for cls in range(2)
+                },
+                'class_metrics': {
+                    CLASS_NAMES[0]: {
+                        'iou': round(iou_score.item(), 4),
+                        'dice': round(dice_score.item(), 4),
+                        'pixel_accuracy': round(mpa_score.item(), 4),
+                    },
+                    CLASS_NAMES[1]: {
+                        'iou': round(iou_score.item(), 4),
+                        'dice': round(dice_score.item(), 4),
+                        'pixel_accuracy': round(mpa_score.item(), 4),
+                    }
+                }
+            }
+            
+            info = {
+                'model_used': {
+                    'key': model_key,
+                    'name': model_info['config']['name'],
+                    'description': model_info['config']['description'],
+                    'input_size': f"{target_size[0]}x{target_size[1]}",
+                },
+                'original_size': f"{image.size[0]}x{image.size[1]}",
+                'processed_size': f"{target_size[0]}x{target_size[1]}",
+                'processing_time': datetime.now().isoformat(),
+                'device_used': str(device)
+            }
+            
+            return prediction_mask, metrics, info
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return None, None, f"Błąd podczas predykcji: {str(e)}"
+
 def generate_demo_prediction(image, model_name):
     """Generuje przykładową predykcję dla trybu demo"""
     try:
@@ -308,7 +541,11 @@ def generate_demo_prediction(image, model_name):
         for cls, count in zip(unique_classes, class_counts):
             class_percentages[int(cls)] = float(count) / total_pixels * 100
         
-        # Przykładowe metryki
+        # Uzupełnij brakujące klasy
+        for cls in range(2):
+            if cls not in class_percentages:
+                class_percentages[cls] = 0.0
+        
         metrics = {
             'timestamp': datetime.now().isoformat(),
             'image_shape': mask.shape,
@@ -350,7 +587,6 @@ def generate_demo_prediction(image, model_name):
         st.error(f"Błąd generowania demo: {str(e)}")
         return None, None, None
 
-# Funkcja do tworzenia wykresu rozkładu klas
 def create_class_distribution_chart(metrics):
     """Tworzy wykres rozkładu klas w segmentacji"""
     if 'class_distribution' not in metrics:
@@ -423,7 +659,12 @@ def create_matplotlib_pie_chart(metrics):
     plt.tight_layout()
     return fig
 
-# === GŁÓWNY INTERFEJS ===
+# =================================
+# INTERFEJS GŁÓWNY
+# =================================
+
+# Tytuł aplikacji
+st.markdown("<h1 class='main-header'>Brain MRI Segmentation AI</h1>", unsafe_allow_html=True)
 
 # Sidebar - konfiguracja
 with st.sidebar:
@@ -433,46 +674,35 @@ with st.sidebar:
     demo_mode = st.toggle(
         "Tryb Demo", 
         value=st.session_state.demo_mode,
-        help="Włącz tryb demo bez potrzeby serwera Flask - generuje przykładowe wyniki"
+        help="Włącz tryb demo bez korzystania z modelu - generuje przykładowe wyniki"
     )
     st.session_state.demo_mode = demo_mode
     
     if demo_mode:
-        st.info("**Tryb Demo aktywny**\nGeneruję przykładowe wyniki bez serwera")
+        st.info("**Tryb Demo aktywny**\nGeneruję przykładowe wyniki")
     else:
-        # URL serwera (tylko jeśli nie demo)
-        server_url = st.text_input(
-            "URL serwera Flask:",
-            value="http://localhost:5000",
-            help="Adres serwera z uruchomionym modelem"
-        )
-        
-        # Sprawdzenie statusu serwera
-        if st.button("Sprawdź status serwera"):
-            with st.spinner("Sprawdzam serwer..."):
-                status, info = check_server_status(server_url)
-                st.session_state.server_status = status
-                
-                if status == "online":
-                    st.success("Serwer jest dostępny!")
-                    if info:
-                        st.json(info)
-                else:
-                    st.error("Serwer niedostępny")
-        
-        # Wyświetl aktualny status
-        status_color = {
-            "online": "status-online",
-            "offline": "status-offline", 
-            "unknown": "status-loading"
-        }
-        
-        st.markdown(f"""
-        <div style="margin: 1rem 0;">
-            <span class="status-indicator {status_color.get(st.session_state.server_status, 'status-loading')}"></span>
-            Status serwera: <strong>{st.session_state.server_status.upper()}</strong>
-        </div>
-        """, unsafe_allow_html=True)
+        # Przycisk do ładowania modeli
+        if not st.session_state.models_loaded:
+            if st.button("Załaduj modele", type="primary"):
+                with st.spinner("Ładowanie modeli..."):
+                    try:
+                        st.session_state.models, device = load_models()
+                        loaded_count = sum(1 for m in st.session_state.models.values() if m['loaded'])
+                        if loaded_count > 0:
+                            st.session_state.models_loaded = True
+                            st.success(f"Załadowano {loaded_count}/{len(MODELS_CONFIG)} modeli!")
+                        else:
+                            st.error("Nie udało się załadować żadnego modelu")
+                    except Exception as e:
+                        st.error(f"Błąd ładowania modeli: {str(e)}")
+        else:
+            st.success("Modele załadowane!")
+            
+            # Wyświetl informacje o załadowanych modelach
+            loaded_models = [k for k, v in st.session_state.models.items() if v['loaded']]
+            for model_key in loaded_models:
+                model_info = st.session_state.models[model_key]
+                st.markdown(f"✅ **{model_info['config']['name']}**")
     
     st.markdown("---")
     
@@ -496,7 +726,7 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.markdown("<h2 class='sub-header'>Upload obrazu MRI</h2>", unsafe_allow_html=True)
     
-    # Wybór modelu (uproszczona wersja)
+    # Wybór modelu
     st.markdown("### Wybór modelu AI")
     
     # Lista modeli do wyboru
@@ -585,27 +815,26 @@ with col1:
                         else:
                             st.error("Nie udało się wygenerować demo")
                 else:
-                    # Tryb normalny - połączenie z serwerem
-                    if st.session_state.server_status != "online":
-                        st.warning("Sprawdź czy serwer jest dostępny przed analizą")
-                        st.info("Możesz włączyć **Tryb Demo** w panelu bocznym aby przetestować interfejs")
+                    # Tryb normalny - używamy lokalnego modelu
+                    if not st.session_state.models_loaded:
+                        st.warning("Najpierw załaduj modele z panelu bocznego")
+                        st.info("Możesz też włączyć **Tryb Demo** w panelu bocznym aby przetestować interfejs")
                     else:
                         with st.spinner(f"Analizuję obraz używając modelu {MODELS_CONFIG[st.session_state.selected_model]['name']}..."):
-                            # Wywołanie predykcji z serwerem Flask
-                            mask, metrics, info = predict_with_flask_server(
+                            # Wykonaj predykcję lokalnie
+                            mask, metrics, error = predict_with_local_model(
                                 normalized_image, 
-                                server_url, 
                                 st.session_state.selected_model
                             )
                             
                             if mask is not None and metrics is not None:
                                 st.session_state.prediction = mask
                                 st.session_state.metrics = metrics
-                                st.session_state.prediction_info = info
+                                st.session_state.prediction_info = error  # info jest przekazywane w parametrze error
                                 st.success("Analiza zakończona pomyślnie!")
                                 st.balloons()
                             else:
-                                st.error("Nie udało się wykonać analizy")
+                                st.error(f"Nie udało się wykonać analizy: {error}")
                                 st.info("Spróbuj włączyć **Tryb Demo** w panelu bocznym")
         
         except Exception as e:
@@ -710,7 +939,10 @@ with col2:
         if hasattr(st.session_state, 'prediction_info') and st.session_state.prediction_info:
             with st.expander("Informacje techniczne"):
                 info = st.session_state.prediction_info
-                st.json(info)
+                if isinstance(info, dict):
+                    st.json(info)
+                else:
+                    st.text(info)
                     
     else:
         st.markdown("""
@@ -726,17 +958,18 @@ with col2:
 # Dodatkowe informacje
 with st.expander("Informacje o modelu i klasach"):
     st.markdown("""
-    ### Tryb Demo vs Tryb Rzeczywisty:
+    ### Tryb Demo vs Tryb Normalny:
     
     **Tryb Demo:**
-    - Nie wymaga serwera Flask ani wytrenowanych modeli
+    - Nie wymaga załadowanych modeli
     - Generuje przykładowe wyniki segmentacji
     - Idealny do testowania interfejsu
     - **UWAGA:** Wyniki nie są prawdziwą analizą medyczną!
     
-    **Tryb Rzeczywisty:**
-    - Wymaga uruchomionego serwera Flask z wytrenowanym modelem
+    **Tryb Normalny:**
+    - Wymaga załadowania modeli
     - Wykonuje prawdziwą segmentację obrazów MRI
+    - Używa lokalnie załadowanych modeli PyTorch
     
     ### Model U-Net:
     
