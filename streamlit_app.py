@@ -121,55 +121,27 @@ st.markdown("""
 MODELS_CONFIG = {
     "unet_standard": {
         "name": "U-Net Standard",
-        "description": "Podstawowy model U-Net z standardowymi parametrami",
+        "description": "Model U-Net do segmentacji obrazów MRI",
         "checkpoint": "best_unet_model.pth",
         "input_size": (256, 256),
         "features": ["Szybka predykcja", "Dobra ogólna jakość", "Stabilny"],
-        "recommended_for": "Ogólne zastosowania diagnostyczne"
-    },
-    "unet_enhanced": {
-        "name": "U-Net Enhanced", 
-        "description": "Ulepszona wersja z większą liczbą filtrów i attention",
-        "checkpoint": "best_unet_enhanced.pth",
-        "input_size": (256, 256),
-        "features": ["Wyższa dokładność", "Lepsze wykrywanie detali", "Attention mechanism"],
-        "recommended_for": "Precyzyjna analiza zmian patologicznych"
-    },
-    "unet_deep": {
-        "name": "U-Net Deep",
-        "description": "Głęboka architektura dla najwyższej precyzji",
-        "checkpoint": "best_unet_deep.pth", 
-        "input_size": (512, 512),
-        "features": ["Najwyższa dokładność", "Wysoka rozdzielczość", "Zaawansowana architektura"],
-        "recommended_for": "Badania naukowe i przypadki skomplikowane"
+        "recommended_for": "Segmentacja guzów mózgu"
     }
 }
 
-# Definicje klas segmentacji - zgodne z Twoim modelem
+# Definicje klas segmentacji - aktualizacja do 2 klas
 CLASS_DEFINITIONS = {
     0: {
         "name": "Tło",
-        "description": "Obszary nie będące tkanką mózgową",
+        "description": "Obszary nie będące guzem",
         "color": [0, 0, 0],
         "hex": "#000000"
     },
     1: {
-        "name": "Nekrotyczny rdzeń",
-        "description": "Nekrotyczny rdzeń guza (NCR/NET)",
+        "name": "Guz",
+        "description": "Obszary z guzem mózgu",
         "color": [255, 0, 0],
         "hex": "#FF0000"
-    },
-    2: {
-        "name": "Obrzęk okołoguzowy", 
-        "description": "Obrzęk wokół guza (ED)",
-        "color": [0, 255, 0],
-        "hex": "#00FF00"
-    },
-    3: {
-        "name": "Aktywny guz",
-        "description": "Aktywne tkanka guza (ET)",
-        "color": [0, 0, 255],
-        "hex": "#0000FF"
     }
 }
 
@@ -318,24 +290,14 @@ def generate_demo_prediction(image, model_name):
         # Dodaj "guz" w środku obrazu
         center_x, center_y = w // 2, h // 2
         
-        # Klasa 3 (aktywny guz) - małe kółko w środku
+        # Klasa 1 (guz) - kółko w środku
         y, x = np.ogrid[:h, :w]
-        tumor_mask = (x - center_x)**2 + (y - center_y)**2 < (min(w, h) * 0.05)**2
-        mask[tumor_mask] = 3
-        
-        # Klasa 1 (nekrotyczny rdzeń) - wokół guza
-        necrotic_mask = (x - center_x)**2 + (y - center_y)**2 < (min(w, h) * 0.08)**2
-        necrotic_mask = necrotic_mask & ~tumor_mask
-        mask[necrotic_mask] = 1
-        
-        # Klasa 2 (obrzęk) - większy obszar wokół
-        edema_mask = (x - center_x)**2 + (y - center_y)**2 < (min(w, h) * 0.12)**2
-        edema_mask = edema_mask & ~necrotic_mask & ~tumor_mask
-        mask[edema_mask] = 2
+        tumor_mask = (x - center_x)**2 + (y - center_y)**2 < (min(w, h) * 0.1)**2
+        mask[tumor_mask] = 1
         
         # Dodaj trochę szumu
         noise = np.random.random((h, w)) < 0.02
-        mask[noise] = np.random.randint(0, 4, size=np.sum(noise))
+        mask[noise] = np.random.randint(0, 2, size=np.sum(noise))
         
         # Stwórz przykładowe metryki
         unique_classes, class_counts = np.unique(mask, return_counts=True)
@@ -346,36 +308,28 @@ def generate_demo_prediction(image, model_name):
         for cls, count in zip(unique_classes, class_counts):
             class_percentages[int(cls)] = float(count) / total_pixels * 100
         
-        # Przykładowe metryki (różne dla różnych modeli)
-        model_quality = {
-            "unet_standard": {"dice": 0.78, "iou": 0.68, "accuracy": 0.88},
-            "unet_enhanced": {"dice": 0.84, "iou": 0.76, "accuracy": 0.92}, 
-            "unet_deep": {"dice": 0.89, "iou": 0.82, "accuracy": 0.95}
-        }
-        
-        base_metrics = model_quality.get(model_name, model_quality["unet_standard"])
-        
+        # Przykładowe metryki
         metrics = {
             'timestamp': datetime.now().isoformat(),
             'image_shape': mask.shape,
             'num_classes_detected': len(unique_classes),
-            'mean_iou': base_metrics["iou"],
-            'mean_dice': base_metrics["dice"],
-            'mean_pixel_accuracy': base_metrics["accuracy"],
+            'mean_iou': 0.85,
+            'mean_dice': 0.89,
+            'mean_pixel_accuracy': 0.92,
             'class_distribution': {
                 CLASS_NAMES.get(cls, f"Class_{cls}"): {
                     'percentage': round(class_percentages.get(cls, 0.0), 2),
                     'pixel_count': int(class_counts[list(unique_classes).index(cls)] if cls in unique_classes else 0)
                 }
-                for cls in range(4)
+                for cls in range(2)
             },
             'class_metrics': {
                 CLASS_NAMES.get(i, f"Class_{i}"): {
-                    'iou': round(base_metrics["iou"] + np.random.uniform(-0.1, 0.1), 4),
-                    'dice': round(base_metrics["dice"] + np.random.uniform(-0.1, 0.1), 4),
-                    'pixel_accuracy': round(base_metrics["accuracy"] + np.random.uniform(-0.05, 0.05), 4),
+                    'iou': round(0.85 + np.random.uniform(-0.1, 0.1), 4),
+                    'dice': round(0.89 + np.random.uniform(-0.1, 0.1), 4),
+                    'pixel_accuracy': round(0.92 + np.random.uniform(-0.05, 0.05), 4),
                 }
-                for i in range(4)
+                for i in range(2)
             }
         }
         
@@ -663,7 +617,6 @@ with col2:
     
     if st.session_state.prediction is not None and st.session_state.uploaded_image is not None:
         
-        
         # Wyniki wizualne
         result_col1, result_col2 = st.columns(2)
         
@@ -690,7 +643,7 @@ with col2:
             <div class="metric-card">
                 <h3 style="color: #e74c3c;">Dice Score</h3>
                 <h1>{metrics.get('mean_dice', 'N/A'):.4f}</h1>
-                <p>Średnia ze wszystkich klas</p>
+                <p>Współczynnik Dice'a</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -771,7 +724,7 @@ with col2:
         """, unsafe_allow_html=True)
 
 # Dodatkowe informacje
-with st.expander("Informacje o modelach i klasach"):
+with st.expander("Informacje o modelu i klasach"):
     st.markdown("""
     ### Tryb Demo vs Tryb Rzeczywisty:
     
@@ -782,26 +735,19 @@ with st.expander("Informacje o modelach i klasach"):
     - **UWAGA:** Wyniki nie są prawdziwą analizą medyczną!
     
     **Tryb Rzeczywisty:**
-    - Wymaga uruchomionego serwera Flask z wytrenowanymi modelami
+    - Wymaga uruchomionego serwera Flask z wytrenowanym modelem
     - Wykonuje prawdziwą segmentację obrazów MRI
-    - Różne poziomy dokładności w zależności od modelu
     
-    ### Dostępne modele:
+    ### Model U-Net:
     
-    **U-Net Standard** - Podstawowy model zapewniający szybkie i stabilne wyniki dla większości przypadków diagnostycznych.
-    
-    **U-Net Enhanced** - Ulepszona wersja z mechanizmami uwagi, zapewniająca wyższą dokładność wykrywania szczegółów patologicznych.
-    
-    **U-Net Deep** - Najzaawansowana architektura dla przypadków wymagających najwyższej precyzji i analizy wysokiej rozdzielczości.
+    **U-Net Standard** - Model wykorzystujący architekturę U-Net do segmentacji obrazów MRI, zapewniający szybkie i stabilne wyniki dla wykrywania guzów mózgu.
     
     ### Klasy segmentacji:
     
     Model został wytrenowany do identyfikacji następujących struktur w obrazach MRI mózgu:
     
-    - **Tło (czarny)**: Obszary nie będące tkanką mózgową
-    - **Nekrotyczny rdzeń (czerwony)**: NCR/NET - obszary nekrotyczne i nie wzmacniające się części guza
-    - **Obrzęk okołoguzowy (zielony)**: ED - obrzęk wokół guza
-    - **Aktywny guz (niebieski)**: ET - aktywnie wzmacniające się części guza
+    - **Tło (czarny)**: Obszary nie będące guzem
+    - **Guz (czerwony)**: Obszary z guzem mózgu
     
     ### Metryki:
     
